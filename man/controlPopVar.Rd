@@ -6,7 +6,6 @@
 \usage{
 controlPopVar(
   alpha = 0.05,
-  trcount = 0,
   bootType = c("parametric", "semiparametric", "nonparametric"),
   B = 500,
   confType = c("percentilic", "normal", "basic"),
@@ -16,14 +15,12 @@ controlPopVar(
   fittingMethod = c("optim", "IRLS"),
   bootstrapFitcontrol = NULL,
   sd = c("sqrtVar", "normalMVUE"),
-  covType = c("observedInform", "Fisher")
+  covType = c("observedInform", "Fisher"),
+  cores = 1L
 )
 }
 \arguments{
 \item{alpha}{significance level, 0.05 used by default.}
-
-\item{trcount}{truncated count - a number to be added to point estimator
-and both sides of confidence intervals.}
 
 \item{bootType}{bootstrap type. Default is \code{"parametric"},
 other possible values are: \code{"semiparametric"} and \code{"nonparametric"}.}
@@ -60,7 +57,13 @@ minimal variance estimator for normal distribution:
 where the ration involving gamma functions is computed by log gamma function.}
 
 \item{covType}{type of covariance matrix for regression parameters by default
-observed information matrix, more options will be here in the future.}
+observed information matrix.}
+
+\item{cores}{For bootstrap only, number of processor cores to be used,
+any number greater than 1 activates code designed with \code{doParallel},
+\code{foreach} and \code{parallel} packages. Note that for now using parallel
+computing makes tracing impossible so \code{traceBootstrapSize} and
+\code{bootstrapVisualTrace} parameters are ignored in this case.}
 }
 \value{
 A list with selected parameters, it is also possible to call list directly.

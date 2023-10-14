@@ -3,24 +3,25 @@
 #' @importFrom stats var
 #' @importFrom stats quantile
 #' @importFrom stats qnorm
-singleRcaptureinternalpopulationEstimate <- function(y, X, grad,
+singleRcaptureinternalpopulationEstimate <- function(y, X, grad, # check if some of those are not needed
                                                      beta, weights,
                                                      hessian, family,
                                                      eta, popVar,
                                                      control,
                                                      Xvlm, W, formulas,
                                                      sizeObserved,
-                                                     modelFrame, cov) {
+                                                     modelFrame, 
+                                                     cov, offset,
+                                                     weightsFlag) {
   #if (popVar == "noEst") {return(NULL)} moved to main function to avoid copying function parameters
   hwm <- attr(Xvlm, "hwm")
   siglevel <- control$alpha
-  trcount <- control$trcount
   numboot <- control$B
   sc <- qnorm(p = 1 - siglevel / 2)
   
   if (popVar == "analytic") {
     strappedStatistic <- "No bootstrap performed"
-    N <- family$pointEst(pw = weights, eta = eta) + trcount
+    N <- family$pointEst(pw = weights, eta = eta, y = y)
     if (is.null(cov)) {
       
       cov <- switch(control$covType, # Change covariance here by adding more cases
@@ -48,7 +49,8 @@ singleRcaptureinternalpopulationEstimate <- function(y, X, grad,
       eta = eta, 
       pw = weights,
       cov = cov,
-      Xvlm = if (family$family == "zelterman") X else Xvlm
+      Xvlm = if (family$family == "zelterman") X else Xvlm,
+      y = y
     ))
     
     if (!is.finite(variation))
@@ -68,30 +70,47 @@ singleRcaptureinternalpopulationEstimate <- function(y, X, grad,
                       upperBound = sizeObserved + (N - sizeObserved) * G)
     )))
   } else if (grepl("bootstrap", popVar, fixed = TRUE)) {
-    funBoot <- switch(
-      control$bootType,
-      "parametric" = parBoot,
-      "semiparametric" = semparBoot,
-      "nonparametric" = noparBoot
-    )
     
-    N <- family$pointEst(
-      pw = if (family$family == "chao") weights[y %in% 1:2] 
-      else if (grepl(pattern = "^zot", x = family$family)) weights[y > 1] 
-      else weights,
-      eta = eta) + trcount
+    N <- family$pointEst(pw = weights, eta = eta, y = y)
     
-    strappedStatistic <- funBoot(
-      family = family, formulas = formulas,
-      y = y, X = X, hwm = hwm,
-      beta = beta, weights = weights,
-      trcount = trcount, numboot = numboot,
-      eta = eta, trace = control$traceBootstrapSize,
-      visT = control$bootstrapVisualTrace,
-      method = control$fittingMethod,
-      controlBootstrapMethod = control$bootstrapFitcontrol,
-      N = N, Xvlm = Xvlm, modelFrame = modelFrame
-    )
+    if (control$cores > 1) {
+      funBoot <- switch(
+        control$bootType,
+        "parametric" = parBootMultiCore,
+        "semiparametric" = semparBootMultiCore,
+        "nonparametric" = noparBootMultiCore
+      )
+      
+      strappedStatistic <- funBoot(
+        family = family, formulas = formulas,
+        y = y, X = X, hwm = hwm,
+        beta = beta, weights = weights, numboot = numboot,
+        eta = eta, cores = control$cores,
+        method = control$fittingMethod,
+        controlBootstrapMethod = control$bootstrapFitcontrol,
+        N = N, Xvlm = Xvlm, modelFrame = modelFrame,
+        offset = offset, weightsFlag = weightsFlag
+      )
+    } else {
+      funBoot <- switch(
+        control$bootType,
+        "parametric" = parBoot,
+        "semiparametric" = semparBoot,
+        "nonparametric" = noparBoot
+      )
+      
+      strappedStatistic <- funBoot(
+        family = family, formulas = formulas,
+        y = y, X = X, hwm = hwm,
+        beta = beta, weights = weights, numboot = numboot,
+        eta = eta, trace = control$traceBootstrapSize,
+        visT = control$bootstrapVisualTrace,
+        method = control$fittingMethod,
+        controlBootstrapMethod = control$bootstrapFitcontrol,
+        N = N, Xvlm = Xvlm, modelFrame = modelFrame,
+        offset = offset, weightsFlag = weightsFlag
+      )
+    }
 
     if (N < stats::quantile(strappedStatistic, .05)) {
       warning("bootstrap statistics unusually high, try higher maxiter/lower epsilon for fitting bootstrap samples (bootstrapFitcontrol)\n")
@@ -153,7 +172,7 @@ singleRcaptureinternalIRLSmultipar <- function(dependent,
                                                family,
                                                formulas,
                                                covariates,
-                                               start,
+                                               etaStart,
                                                weights,
                                                maxiter = 10000,
                                                eps = .Machine$double.eps,
@@ -167,6 +186,7 @@ singleRcaptureinternalIRLSmultipar <- function(dependent,
                                                crit,
                                                printOften,
                                                saveLog,
+                                               offset,
                                                ...) {
   dg <- 8 # add to controll
   converged <- FALSE
@@ -177,25 +197,34 @@ singleRcaptureinternalIRLSmultipar <- function(dependent,
         "\nConsider lowering stepsize control parameter if fitting fails.\n")
   }
   
-  mu.eta   <- family$mu.eta
-  validmu  <- family$validmu
-  variance <- family$variance
-  famName  <- family$family
-  Zfun     <- family$funcZ
-  Wfun     <- family$Wfun
-  prior    <- as.numeric(weights)
+  mu.eta    <- family$mu.eta
+  validmu   <- family$validmu
+  variance  <- family$variance
+  famName   <- family$family
+  Zfun      <- family$funcZ
+  Wfun      <- family$Wfun
+  prior     <- as.numeric(weights)
+  dependent <- as.numeric(dependent)
   
   iter <- 1
   step <- NULL
   betaPrev <- NULL
-  beta <- start
+  beta <- rep(0, NCOL(covariates))
   
-  if (famName %in% c("chao", "zelterman")) {
-    dependent <- dependent - 1
-  }
+  logLike <- family$makeMinusLogLike(
+    y      = dependent, 
+    X      = covariates, 
+    weight = prior, 
+    offset = offset
+  )
   
-  logLike <- family$makeMinusLogLike(y = dependent, X = covariates, weight = prior)
-  grad    <- family$makeMinusLogLike(y = dependent, X = covariates, weight = prior, deriv = 1)
+  grad    <- family$makeMinusLogLike(
+    y      = dependent, 
+    X      = covariates, 
+    weight = prior, 
+    deriv  = 1, 
+    offset = offset
+  )
   
   logg <- NULL
   if (isTRUE(saveLog)) {
@@ -244,17 +273,16 @@ singleRcaptureinternalIRLSmultipar <- function(dependent,
   parNum <- length(family$etaNames)
   W <- prior
   LPrev <- -Inf
-  L <- -logLike(beta)
-  eta <- covariates %*% beta
-  eta <- matrix(eta, ncol = parNum)
+  L   <- -Inf
+  eta <- etaStart
+  
   while (!converged & (iter < maxiter)) {
     halfstepsizing <- FALSE
     mu <- mu.eta(eta = eta, ...)
     if (!validmu(mu)) {
       mu <- mu.eta(eta = eta, ...)
       stop(paste0(
-        "Fit error infinite values reached consider another model,",
-        "mu is too close to zero/infinity.\n"
+        "Fit error infinite values reached consider another model, mu is too close to zero/infinity.\n"
       ))
     }
 
@@ -269,16 +297,17 @@ singleRcaptureinternalIRLSmultipar <- function(dependent,
       ))
     
     WPrev <- W
+    #W <- Wfun(prior = prior, eta = eta, y = dependent)
     tryCatch(
       expr = {
         W <- Wfun(prior = prior, eta = eta, y = dependent)
       },
       error = function (e) {
-        stop(cat(
-          "Working weight matrixes at iteration:", 
-          iter, 
-          "could not have been computer.", sep = " "
-        ))
+        stop(
+          "Working weight matrixes at iteration: ",
+          iter,
+          " could not have been computed."
+        )
       }
     )
     
@@ -300,42 +329,47 @@ singleRcaptureinternalIRLSmultipar <- function(dependent,
       )
     }
     
-    
-    err <- tryCatch(
-      expr = {
-        z <- eta + Zfun(eta = eta, weight = W, y = dependent)
-        FALSE
-      },
-      error = function (e) {
-        TRUE
-      }
+    z <- NULL
+    try(
+      expr = {z <- eta + Zfun(eta = eta, weight = W, y = dependent, prior = prior) - offset}
     )
     
-    if (isTRUE(err)) {
-      stop(paste0(
-        "Pseudo residuals of IRLS algorithm could not have been computed at iteration: ",
-        iter, "\nMost likely working weight matrixes could not have been inverted."
-      ), call. = FALSE)
+    if (is.null(z)) {
+      # stop(paste0(
+      #   "Pseudo residuals of IRLS algorithm could not have been computed at iteration: ",
+      #   iter, "\nMost likely working weight matrixes could not have been inverted."
+      # ), call. = FALSE)
     }
-    
-    XbyW <- singleRinternalMultiplyWeight(X = covariates, W = W)
+    XbyW     <- singleRinternalMultiplyWeight(X = covariates, W = W)
     # A <- t(Xvlm) %*% WW %*% (Xvlm)
     # B <- t(Xvlm) %*% WW %*% (as.numeric(z))
-    A <- XbyW %*% covariates
-    B <- XbyW %*% as.numeric(z)
+    A        <- XbyW %*% covariates
+    B        <- XbyW %*% as.numeric(z)
+    
+    if (any(!is.finite(A)) || any(!is.finite(B))) {
+      stop("IRLS step could not have been computed at iteration ", iter, call. = FALSE)
+    }
+    
     betaPrev <- beta
     stepPrev <- step
-    step <- solve(A,B) - betaPrev
-    beta <- betaPrev + stepsize * 
-    (step + if ((is.null(stepPrev) | !momentumFactor)) 0 else {
-    if (L-LPrev < momentumActivation) momentumFactor * stepPrev else 0
-    })
+    step     <- solve(A,B)
+    #step <- coef(lm.wfit(x = covariates, y = z, w = W[,1]))
+    
+    if (!is.null(betaPrev)) {
+      step <- step - betaPrev
+      beta <- betaPrev + stepsize * 
+        (step + if ((is.null(stepPrev) | !momentumFactor)) 0 else {
+          if (L-LPrev < momentumActivation) momentumFactor * stepPrev else 0
+        })
+    } else {
+      beta <- step
+    }
     
     eta <- covariates %*% beta
-    eta <- matrix(eta, ncol = parNum)
+    eta <- matrix(eta, ncol = parNum) + offset
     
     LPrev <- L
-    L <- -logLike(beta)
+    L     <- -logLike(beta)
     
     if ((iter - 1) %% printOften == 0) {
       if (trace > 0) {cat(sep = "", "Iteration number ", iter, 
@@ -362,9 +396,9 @@ singleRcaptureinternalIRLSmultipar <- function(dependent,
         cat("\nTaking a modified step....\n")
       }
       repeat {
-        h <- step <- h / 2
+        h    <- step <- h / 2
         beta <- betaPrev - h
-        L <- -logLike(beta)
+        L    <- -logLike(beta)
         if (isTRUE(L > LPrev) && is.finite(L)) {
           break
         }
@@ -375,7 +409,7 @@ singleRcaptureinternalIRLSmultipar <- function(dependent,
             if (!silent) {
               warning("IRLS half-stepping terminated because the step is too small.")
             }
-            L <- LPrev
+            L    <- LPrev
             beta <- betaPrev
           } else {
             if (!silent) {
@@ -405,7 +439,7 @@ singleRcaptureinternalIRLSmultipar <- function(dependent,
     }
     
     eta <- covariates %*% beta
-    eta <- matrix(eta, ncol = parNum)
+    eta <- matrix(eta, ncol = parNum) + offset
     
     if (trace > 0 && (iter - 1) %% printOften == 0) {cat(sep = "", "\n----\n")}
     converged <- eval(convergence)
@@ -429,7 +463,7 @@ singleRcaptureinternalIRLSmultipar <- function(dependent,
   }
   
   if (trace > 4) {
-    hhh <- family$makeMinusLogLike(y = dependent, X = covariates, weight = prior, deriv = 2)(beta)
+    hhh <- family$makeMinusLogLike(y = dependent, X = covariates, weight = prior, deriv = 2, offset = offset)(beta)
     cat("Value of analytically computed hessian at fitted regression coefficients:\n")
     print(hhh)
     cat("The matrix above has the following eigen values:\n", 
@@ -450,8 +484,7 @@ singleRcaptureinternalIRLSmultipar <- function(dependent,
   
   mu <- mu.eta(eta = eta, ...)
   if (!validmu(mu)) {
-    stop("Fit error infinite values reached consider another model,
-          mu is too close to zero/infinity")
+    stop("Fit error infinite values reached consider another model, mu is too close to zero/infinity")
   }
 
   list(coefficients = beta, iter = iter, weights = W, logg = logg)
@@ -459,6 +492,7 @@ singleRcaptureinternalIRLSmultipar <- function(dependent,
 # make Xvlm matrix
 #' @importFrom stats terms
 singleRinternalGetXvlmMatrix <- function(X, formulas, parNames, contrasts = NULL) {
+  # TODO:: functions in formulas don't work when on is ~ . add a speciak check for this dot
   if (length(formulas[[1]]) == 3) {
     formulas[[1]][[2]] <- NULL
   }
@@ -474,18 +508,21 @@ singleRinternalGetXvlmMatrix <- function(X, formulas, parNames, contrasts = NULL
       if (attr(terms(formulas[[k]], data = X), "intercept") == 0) {
         Xses[[k]] <- model.matrix(
           ~ . - 1,
-          data = X[, attr(terms(formulas[[k]], data = X), "term.labels"), drop = FALSE]
+          data = X[, intersect(attr(terms(formulas[[k]], data = X), "term.labels"),
+                               colnames(X)), drop = FALSE]
         )
       } else {
         Xses[[k]] <- model.matrix(
           ~ .,
-          data = X[, attr(terms(formulas[[k]], data = X), "term.labels"), drop = FALSE]
+          data = X[, intersect(attr(terms(formulas[[k]], data = X), "term.labels"),
+                               colnames(X)), drop = FALSE]
         )
       }
     } else {
       Xses[[k]] <- model.matrix(
         ~ 1,
-        X[, attr(terms(formulas[[k]], data = X), "term.labels"), drop = FALSE]
+        X[, intersect(attr(terms(formulas[[k]], data = X), "term.labels"),
+                      colnames(X)), drop = FALSE]
       )
       if (attr(terms(formulas[[k]], data = X), "intercept") == 0)
         warning(paste0(
@@ -514,36 +551,6 @@ singleRinternalGetXvlmMatrix <- function(X, formulas, parNames, contrasts = NULL
   attr(Xvlm, "hwm") <- hwm
   Xvlm
 }
-# Chosing data for estimation/regression
-singleRcaptureinternalDataCleanupSpecialCases <- function (family, observed, popVar) {
-  if (grepl("zot", family$family)) {
-    trr <- sum(observed == 1)
-    wch1 <- wch2 <- (observed > 1)
-    if (popVar != "analytic") {
-      # in bootstrap we need all
-      wch2 <- rep(TRUE, length(observed))
-    }
-  } else if (family$family == "chao") {
-    trr <- sum(observed > 2)
-    wch1 <- wch2 <- (observed %in% c(1, 2))
-    if (popVar != "analytic") {
-      # in bootstrap we need all
-      wch2 <- rep(TRUE, length(observed))
-    }
-  } else if (family$family == "zelterman") {
-    # In zelterman model regression is indeed based only on 1 and 2 counts
-    # but estimation is based on ALL counts
-    wch1 <- (observed %in% c(1, 2))
-    wch2 <- rep(TRUE, length(observed))
-    trr <- 0
-  } else {
-    trr <- 0
-    wch1 <- wch2 <- rep(TRUE, length(observed))
-  }
-  list(reg = as.logical(wch1), # which rows for regression
-       est = as.logical(wch2), # which rows for estimation
-       trr = trr)  # add to trcount
-}
 #' @importFrom stats reformulate
 singleRinternalMergeFormulas <- function(ff) {
   # This code was inspired by: https://stevencarlislewalker.wordpress.com/2012/08/06/merging-combining-adding-together-two-formula-objects-in-r/
@@ -570,7 +577,7 @@ singleRinternalMergeFormulas <- function(ff) {
   out
 }
 
-# This is almost certainly an overkill but is supports arbitrary number of linear predictors
+# This is almost certainly an overkill but it supports arbitrary number of linear predictors
 singleRinternalMultiplyWeight <- function (X, W, ...) {
   hwm <- attr(X, "hwm")
   thick <- sqrt(ncol(W))
@@ -592,7 +599,7 @@ singleRinternalMultiplyWeight <- function (X, W, ...) {
 # cholFroW <- function(W, prior) {
 #   if (NROW(W) != NROW(prior)) 
 #     stop(paste0(
-#       "Error in estimatePopsize.fit, working ",
+#       "Error in estimatePopsizeFit, working ",
 #       "weights and prior weights suggest different number of observations."
 #     ))
 #   L <- list()

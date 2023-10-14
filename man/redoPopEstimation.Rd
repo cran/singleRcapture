@@ -2,19 +2,30 @@
 % Please edit documentation in R/Methods.R
 \name{redoPopEstimation}
 \alias{redoPopEstimation}
-\alias{redoPopEstimation.singleR}
+\alias{redoPopEstimation.singleRStaticCountData}
 \title{Updating population size estimation results.}
 \usage{
 redoPopEstimation(object, newdata, ...)
 
-\method{redoPopEstimation}{singleR}(object, newdata, cov, weights, coef, control, popVar, ...)
+\method{redoPopEstimation}{singleRStaticCountData}(
+  object,
+  newdata,
+  cov,
+  weights,
+  coef,
+  control,
+  popVar,
+  offset,
+  weightsAsCounts,
+  ...
+)
 }
 \arguments{
 \item{object}{object for which update of population size estimation results will be done.}
 
 \item{newdata}{optional \code{data.frame} with new data for pop size estimation.}
 
-\item{...}{additional optional arguments, currently not used in \code{singleR} class method.}
+\item{...}{additional optional arguments, currently not used in \code{singleRStaticCountData} class method.}
 
 \item{cov}{an updated covariance matrix estimate.}
 
@@ -28,6 +39,11 @@ If missing set to controls provided on call to \code{object}.}
 
 \item{popVar}{similar to \code{popVar} in \code{\link[=estimatePopsize]{estimatePopsize()}}.
 If missing set to \code{"analytic"}.}
+
+\item{offset}{offset argument for new data}
+
+\item{weightsAsCounts}{for \code{singleRStaticCountData} method used to specify
+whether weights should be treated as number of occurences for rows in data}
 }
 \value{
 An object of class \code{popSizeEstResults} containing updated

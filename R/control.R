@@ -4,7 +4,7 @@
 #' 
 #' @description \code{controlMethod} constructs a list with all necessary 
 #' control parameters for regression fitting in 
-#' \code{estimatePopsize.fit} and \code{estimatePopsize}.
+#' \code{estimatePopsizeFit} and \code{estimatePopsize}.
 #'
 #' @param epsilon tolerance for fitting algorithms by default \code{1e-8}.
 #' @param maxiter maximum number of iterations.
@@ -25,13 +25,15 @@
 #' if \code{optim} method was chosen verbose will be passed to [stats::optim()] as trace.
 #' @param printEveryN integer value indicating how often to print information
 #' specified in \code{verbose}, by default set to \code{1}.
-#' @param start initial parameters for regression coefficients
-#' if \code{NULL} they will be derived internally.
+#' @param coefStart,etaStart initial parameters for regression coefficients
+#' or linear predictors if \code{NULL}. For \code{IRLS} fitting only \code{etaStart}
+#' is needed so if \code{coefStart} is provided it will be converted to \code{etaStart},
+#' for \code{optim} fitting \code{coefStart} is necessary and argument \code{etaStart}
+#' will be ignored.
 #' @param silent logical, indicating whether warnings in \code{IRLS} method should be suppressed.
 #' @param optimPass optional list of parameters passed to \code{stats::optim(..., control = optimPass)}
 #' if FALSE then list of control parameters will be inferred from other parameters.
-#' @param optimMethod method of [stats::optim()] used L-BFGS-B is the default 
-#' except for negative binomial and one inflated models where \code{"Nelder-Mead"} is used.
+#' @param optimMethod method of [stats::optim()] used  \code{"Nelder-Mead"} is the default .
 #' @param stepsize only for \code{IRLS}, scaling of updates to \code{beta} vector 
 #' lower value means slower convergence but more accuracy by default 1. 
 #' In general if fitting algorithm fails lowering this value tends to 
@@ -39,7 +41,7 @@
 #' @param checkDiagWeights logical value indicating whether to check if diagonal 
 #' elements of working weights matrixes in \code{IRLS} are sufficiently positive 
 #' so that these matrixes are positive defined. By default \code{TRUE}.
-#' @param weightsEpsilon small number to ensure positivity of weights matrixes. 
+#' @param weightsEpsilon small number to ensure positive definedness of weights matrixes. 
 #' Only matters if \code{checkDiagWeights} is set to \code{TRUE}. 
 #' By default \code{1e-8}.
 #' @param momentumFactor experimental parameter in \code{IRLS} only allowing for 
@@ -59,15 +61,16 @@
 #' \code{verbose} should be saved to output object, by default \code{FALSE}.
 #'
 #' @return List with selected parameters, it is also possible to call list directly.
-#' @seealso [singleRcapture::estimatePopsize()] [singleRcapture::estimatePopsize.fit()] 
+#' @seealso [singleRcapture::estimatePopsize()] [singleRcapture::estimatePopsizeFit()] 
 #' [singleRcapture::controlModel()] [singleRcapture::controlPopVar()]
 #' @export
 controlMethod <- function(epsilon             = 1e-8,
                           maxiter             = 1000,
                           verbose             = 0,
                           printEveryN         = 1L,
-                          start               = NULL,
-                          optimMethod         = "L-BFGS-B",
+                          coefStart           = NULL,
+                          etaStart            = NULL,
+                          optimMethod         = "Nelder-Mead",
                           silent              = FALSE,
                           optimPass           = FALSE,
                           stepsize            = 1,
@@ -104,8 +107,11 @@ controlMethod <- function(epsilon             = 1e-8,
     printEveryN <- as.integer(printEveryN)
   }
   
-  if (!is.null(start) && !isTRUE(is.numeric(start)))
-    stop("Argument start has to be either a numeric vector or NULL.")
+  if (!is.null(etaStart) && !isTRUE(is.numeric(etaStart)))
+    stop("Argument etaStart has to be either a numeric vector or NULL.")
+  
+  if (!is.null(coefStart) && !isTRUE(is.numeric(coefStart)))
+    stop("Argument coefStart has to be either a numeric vector or NULL.")
   
   if (!isTRUE(is.logical(silent)) || isTRUE(length(silent) > 1))
     stop("Argument silent should be logical value (of length 1).")
@@ -132,7 +138,8 @@ controlMethod <- function(epsilon             = 1e-8,
     maxiter             = maxiter,
     verbose             = verbose,
     printEveryN         = printEveryN,
-    start               = start,
+    etaStart            = etaStart,
+    coefStart           = coefStart,
     optimMethod         = optimMethod,
     silent              = silent,
     optimPass           = optimPass,
@@ -156,11 +163,11 @@ controlMethod <- function(epsilon             = 1e-8,
 #' the formula also for now all variables from additional formulas should also be
 #' included in the "main" formula.
 #' 
-#' @param weightsAsCounts for now does nothing. The plan is to have this indicate whether
-#' \code{prior.weights} are to be treated as counts for sub populations and adjust all
+#' @param weightsAsCounts boolean value indicating whether to treat \code{weights}
+#' argument as number of occurrences for each row in the \code{data} and adjust
 #' necessary methods and functionalities, like adjustments in bootstrap or
 #' decreasing weights in \code{dfbeta} instead or deleting rows from data, 
-#' to accommodate this form of data.
+#' to accommodate this form of model specification.
 #' @param omegaFormula formula for inflation parameter in one inflated zero 
 #' truncated and zero truncated one inflated models.
 #' @param alphaFormula formula for dispersion parameter in negative binomial
@@ -191,8 +198,11 @@ controlModel <- function(weightsAsCounts = FALSE,
 #' respective standard error and variance estimation.
 #'
 #' @param alpha significance level, 0.05 used by default.
-#' @param trcount truncated count - a number to be added to point estimator 
-#' and both sides of confidence intervals.
+#' @param cores For bootstrap only, number of processor cores to be used,
+#' any number greater than 1 activates code designed with \code{doParallel}, 
+#' \code{foreach} and \code{parallel} packages. Note that for now using parallel
+#' computing makes tracing impossible so \code{traceBootstrapSize} and 
+#' \code{bootstrapVisualTrace} parameters are ignored in this case.
 #' @param bootType bootstrap type. Default is \code{"parametric"}, 
 #' other possible values are: \code{"semiparametric"} and \code{"nonparametric"}.
 #' @param B number of bootstrap samples to be performed (default 500).
@@ -225,7 +235,6 @@ controlModel <- function(weightsAsCounts = FALSE,
 #' @seealso [singleRcapture::estimatePopsize()] [singleRcapture::controlModel()] [singleRcapture::controlMethod()]
 #' @export
 controlPopVar <- function(alpha = .05,
-                          trcount = 0,
                           bootType = c("parametric",
                                        "semiparametric",
                                        "nonparametric"),
@@ -239,7 +248,8 @@ controlPopVar <- function(alpha = .05,
                           fittingMethod = c("optim", "IRLS"),
                           bootstrapFitcontrol = NULL,
                           sd = c("sqrtVar", "normalMVUE"),
-                          covType = c("observedInform", "Fisher")) {
+                          covType = c("observedInform", "Fisher"),
+                          cores = 1L) {
   
   if (missing(fittingMethod)) fittingMethod <- "IRLS"
   if (missing(bootType)) bootType <- "parametric"
@@ -256,9 +266,6 @@ controlPopVar <- function(alpha = .05,
   
   if ((!isTRUE(covType %in% c("observedInform", "Fisher")) && !missing(covType)) || isTRUE(length(covType) > 1))
     stop("Argument covType should be a character with value either observedInform or Fisher.")
-  
-  if (!isTRUE(is.infinite(trcount)) && !missing(trcount) || isTRUE(length(trcount) > 1))
-    stop("Argument trcount should be a proper numeric value (of length 1).")
   
   
   if (!missing(bootType) && !isTRUE(bootType %in% c("parametric",
@@ -283,9 +290,9 @@ controlPopVar <- function(alpha = .05,
     bootType             = bootType,
     confType             = confType,
     covType              = covType,
-    trcount              = trcount,
+    cores                = cores,
     alpha                = alpha,
-    B                   = B,
-    sd                  = sd
+    B                    = B,
+    sd                   = sd
   )
 }
