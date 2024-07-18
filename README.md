@@ -11,7 +11,9 @@ coverage](https://codecov.io/gh/ncn-foreigners/singleRcapture/branch/main/graph/
 [![CRAN
 status](https://www.r-pkg.org/badges/version/singleRcapture)](https://CRAN.R-project.org/package=singleRcapture)
 [![CRAN
-downloads](http://cranlogs.r-pkg.org/badges/grand-total/singleRcapture?color=blue)](https://cran.r-project.org/package=singleRcapture)
+downloads](http://cranlogs.r-pkg.org/badges/grand-total/singleRcapture)](https://cran.r-project.org/package=singleRcapture)
+[![CRAN
+downloads](https://cranlogs.r-pkg.org/badges/singleRcapture)](https://cran.r-project.org/package=singleRcapture)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8436043.svg)](https://doi.org/10.5281/zenodo.8436043)
 <!-- badges: end -->
 
@@ -459,4 +461,4 @@ and information criteria support the second model:
 ## Funding
 
 Work on this package is supported by the the National Science Center,
-OPUS 22 grant no. 2020/39/B/HS4/00941.
+OPUS 20 grant no. 2020/39/B/HS4/00941.
