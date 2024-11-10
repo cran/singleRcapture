@@ -17,21 +17,22 @@ NULL
 #' where \mjseqn{I_{k}=I_{Y_{k} > 0}} are indicator 
 #' variables, with value 1 if kth unit was observed at least once and 0 otherwise.
 #'
-#' @param data data frame or object coercible to data.frame class containing 
+#' @param data a data frame or object coercible to data.frame class containing 
 #' data for the regression and population size estimation.
-#' @param formula formula for the model to be fitted, only applied to the "main" 
+#' @param formula a formula for the model to be fitted, only applied to the "main" 
 #' linear predictor. Only single response models are available.
 #' @param ratioReg Not yet implemented
-#' @param model model for regression and population estimate full description in [singleRmodels()]. 
-#' @param weights optional object of prior weights used in fitting the model. 
+#' @param model a model for regression and population estimate full description in [singleRmodels()]. 
+#' @param weights an optional object of prior weights used in fitting the model. 
 #' Can be used to specify number of occurrences of rows in data see [controlModel()]
 #' @param subset a logical vector indicating which observations should be used 
 #' in regression and population size estimation. It will be evaluated on \code{data} argument provided on call.
 #' @param naAction Not yet implemented.
-#' @param method method for fitting values currently supported: iteratively 
+#' @param method a method for fitting values currently supported: iteratively 
 #' reweighted least squares (\code{IRLS}) and maximum likelihood (\code{optim}).
-#' @param popVar a method of constructing confidence interval either analytic 
-#' or bootstrap. Bootstrap confidence interval type may be specified in 
+#' @param popVar a method of constructing confidence interval and estimating
+#' the standard error either analytic or bootstrap. 
+#' Bootstrap confidence interval type may be specified in 
 #' \code{controlPopVar.} There is also the third possible value of \code{noEst} 
 #' which skips the population size estimate all together.
 #' @param controlMethod a list indicating parameters to use in fitting the model 
@@ -45,10 +46,10 @@ NULL
 #' of population size estimation may be constructed with 
 #' \code{singleRcapture::controlPopVar} function. 
 #' More information included in [controlPopVar()].
-#' @param modelFrame,x,y logical value indicating whether to return model matrix, 
+#' @param modelFrame,x,y logical values indicating whether to return model matrix, 
 #' dependent vector and model matrix as a part of output.
 #' @param contrasts not yet implemented.
-#' @param offset a matrix of offset values with number of columns matching the
+#' @param offset a matrix of offset values with the number of columns matching the
 #' number of distribution parameters providing offset values to each of 
 #' linear predictors.
 #' @param ... additional optional arguments passed to other methods eg. 
@@ -436,7 +437,6 @@ estimatePopsize.default <- function(formula,
                                       "oiztgeom", "ztHurdlegeom", "ztHurdlegeom",
                                       "zelterman", "chao"
                                     ),
-                                    ratioReg = FALSE,
                                     weights  = NULL,
                                     subset   = NULL,
                                     naAction = NULL,
@@ -452,6 +452,7 @@ estimatePopsize.default <- function(formula,
                                     x             = FALSE,
                                     y             = TRUE,
                                     contrasts     = NULL,
+                                    ratioReg      = FALSE,
                                     offset,
                                     ...) {
   if (missing(method)) method <- "IRLS"
@@ -690,7 +691,7 @@ estimatePopsize.default <- function(formula,
     LOG          <- -logLike(coefficients)
     resRes       <- priorWeights * (observed - fitt)
     
-    if (family$family %in% c("zelterman", "chao")) {resRes <- resRes - 1}
+    if (family$family %in% c("zelterman", "chao")) {resRes <- resRes - priorWeights}
   
     deviance <- sum(family$devResids(y   = observed, 
                                      wt  = priorWeights,

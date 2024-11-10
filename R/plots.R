@@ -39,7 +39,7 @@
 #'   for each column of linear predictors.
 #'   \item \code{cooks} -- Plot of cooks distance for detecting influential observations.
 #'   \item \code{hatplot} -- Plot of hat values for each linear predictor for detecting influential observations.
-#'   \item \code{strata} -- Plot of confidence intervals and point estimates for stratas provided in \code{...} argument
+#'   \item \code{strata} -- Plot of confidence intervals and point estimates for strata provided in \code{...} argument
 #' }
 #' @param histKernels logical value indicating whether to add density lines
 #' to histogram.
@@ -324,11 +324,11 @@ plot.singleRStaticCountData <- function(x,
   strata = {
     if (missing(confIntStrata)) confIntStrata <- "logNormal"
     result <- stratifyPopsize(x, ...)
-    est <- result[, 2]
-    obs <- result[, 1]
-    nm <- result[, 9]
-    if (confIntStrata == "logNormal") cnf <- result[, 7:8] 
-    else cnf <- result[, 5:6]
+    est <- result[, 3]
+    obs <- result[, 2]
+    nm <- result[, 1]
+    if (confIntStrata == "logNormal") cnf <- result[, 8:9] 
+    else cnf <- result[, 6:7]
     # OY ####
     # plot(x = 1:NROW(result), est,
     #      ylim = range(cnf),
@@ -353,7 +353,8 @@ plot.singleRStaticCountData <- function(x,
            "Confidence intervals and point estimates for specified sub populations\n",
            "Observed population sizes are presented as navy coloured points"
          ),
-         yaxt = "n", pch = 19
+         yaxt = "n", pch = 19,
+         ...
     )
     points(y = 1:NROW(result), x = obs, col = "navy", pch = 19)
     axis(side = 2, at = 1:NROW(result), labels = FALSE)
