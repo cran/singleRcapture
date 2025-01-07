@@ -1,7 +1,7 @@
 Package: singleRcapture
 Type: Package
 Title: Single-Source Capture-Recapture Models
-Version: 0.2.1.3
+Version: 0.2.1.4
 Authors@R: 
     c(person(given = "Piotr",
              family = "Chlebicki",
@@ -25,9 +25,9 @@ BugReports: https://github.com/ncn-foreigners/singleRcapture/issues
 Imports: stats, lamW, mathjaxr, sandwich, doParallel, foreach, parallel
 Suggests: rmarkdown, knitr, tinytest, covr, VGAM
 NeedsCompilation: no
-Packaged: 2024-11-10 11:26:27 UTC; pich3772
+Packaged: 2024-12-23 11:38:17 UTC; pich3772
 Author: Piotr Chlebicki [aut, cre],
   Maciej Beręsewicz [aut, ctb] (<https://orcid.org/0000-0002-8281-4301>)
 Maintainer: Piotr Chlebicki <piotrek.pecet@gmail.com>
 Repository: CRAN
-Date/Publication: 2024-11-10 17:00:02 UTC
+Date/Publication: 2025-01-07 11:20:05 UTC
