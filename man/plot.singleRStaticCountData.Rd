@@ -2,7 +2,7 @@
 % Please edit documentation in R/plots.R
 \name{plot.singleRStaticCountData}
 \alias{plot.singleRStaticCountData}
-\title{Diagnostic plots for regression and population size estimation.}
+\title{Diagnostic plots for regression and population size estimation}
 \usage{
 \method{plot}{singleRStaticCountData}(
   x,
@@ -17,7 +17,7 @@
 \arguments{
 \item{x}{object of \code{singleRStaticCountData} class.}
 
-\item{plotType}{character parameter specifying type of plot to be made.
+\item{plotType}{character parameter (default \code{"qq"}) specifying type of plot to be made.
 The following list presents and briefly explains possible type of plots:
 \itemize{
 \item \code{qq} -- The quantile-quantile plot for pearson residuals

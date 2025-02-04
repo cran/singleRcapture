@@ -1,4 +1,4 @@
-#' @title Diagnostic plots for regression and population size estimation.
+#' @title Diagnostic plots for regression and population size estimation
 #' @author Piotr Chlebicki
 #'
 #' @description Simple diagnostic plots for \code{singleRStaticCountData} class objects.
@@ -7,7 +7,7 @@
 #' @param dfpop TODO
 #' @param confIntStrata confidence interval type to use for strata plot.
 #' Currently supported values are \code{"normal"} and \code{"logNormal"}.
-#' @param plotType character parameter specifying type of plot to be made.
+#' @param plotType character parameter (default \code{"qq"}) specifying type of plot to be made.
 #' The following list presents and briefly explains possible type of plots:
 #' \itemize{
 #'   \item \code{qq} -- The quantile-quantile plot for pearson residuals 
@@ -102,22 +102,24 @@ plot.singleRStaticCountData <- function(x,
                                         histKernels = TRUE,
                                         dfpop,
                                         ...) {
-  if (missing(plotType) | (!is.null(plotType) & 
-      !isTRUE(is.integer(plotType)) & !isTRUE(is.character(plotType)))) {
-    if (is.numeric(plotType) & (length(plotType) == 1)) {
-      plotType <- as.integer(plotType)
+  
+  if (missing(plotType) || is.null(plotType)) {
+    plotType <- eval(formals()$plotType)[1]
+  } else if (is.numeric(plotType) && length(plotType) == 1) {
+    # Handle numeric index
+    valid_plots <- eval(formals()$plotType)
+    if (plotType > 0 && plotType <= length(valid_plots)) {
+      plotType <- valid_plots[as.integer(plotType)]
     } else {
-      stop("Argument plotType must be provided as a character or integer or NULL.")
+      stop("Numeric plotType must be between 1 and ", length(valid_plots))
     }
+  } else if (is.character(plotType)) {
+    # Use match.arg for character input validation against the options
+    plotType <- match.arg(plotType)
+  } else {
+    stop("plotType must be a character string, or a numeric index")
   }
-  if (isTRUE(is.integer(plotType))) {
-    plotType <- c(
-      "qq", "marginal", "fitresid",
-      "bootHist", "rootogram", "dfpopContr",
-      "dfpopBox", "scaleLoc", "cooks",
-      "hatplot", "strata"
-    )[plotType]
-  }
+  
   ## sugested by Victoria Wimmer
   oldpar <- graphics::par(no.readonly = TRUE)
   on.exit(graphics::par(oldpar))
@@ -128,16 +130,13 @@ plot.singleRStaticCountData <- function(x,
   plotType <- match.arg(plotType)
   parNum <- length(x$model$etaNames)
   
-  # TODO
-  # move this to particular plots
   if (parNum == 1)
     type <- "pearsonSTD" 
   else 
     type <- "pearson"
   
   if (plotType == "fitresid") {
-    res <- residuals(x, type = "response")[, 1] # fitted vs residuals
-    # plot should have just normal response residuals
+    res <- residuals(x, type = "response")[, 1]
   } else {
     res <- residuals(x, type = type)[, 1]
   }
@@ -219,7 +218,7 @@ plot.singleRStaticCountData <- function(x,
     bp <- graphics::barplot(
       sqrt(FF),
       offset = sqrt(M$table[-1]) - sqrt(FF),
-      ylab = expression(sqrt("Frequency")), # This looks just ever so slightly fancier 
+      ylab = expression(sqrt("Frequency")),
       xlab = "captures",
       ylim = c(min(sqrt(M$table[-1]) - sqrt(FF)) - 1, max(sqrt(M$table[-1]) + 1)),
       ...);
@@ -233,7 +232,6 @@ plot.singleRStaticCountData <- function(x,
   },
   dfpopContr = {
     if (missing(dfpop)) dfpop <- dfpopsize(x, ...);
-    # TODO:: use predict method here
     contr <- x$model$pointEst(
       pw = x$priorWeights,
       eta = x$linearPredictors, 
@@ -342,25 +340,12 @@ plot.singleRStaticCountData <- function(x,
     est <- result[, 3]
     obs <- result[, 2]
     nm <- result[, 1]
-    if (confIntStrata == "logNormal") cnf <- result[, 8:9] 
-    else cnf <- result[, 6:7]
-    # OY ####
-    # plot(x = 1:NROW(result), est,
-    #      ylim = range(cnf),
-    #      xlab = "", ylab="Sub population size estimate",
-    #      main="Confidence intervals and point estimates for specified sub populations\nObserved population sizes are presented as navy coloured points",
-    #      xaxt = "n", pch = 19
-    # )
-    # points(x = 1:NROW(result), obs, col = "navy", pch = 19)
-    # axis(side = 1, at = 1:NROW(result), labels = FALSE)
-    # text(x = 1:NROW(result), y=graphics::par("usr", no.readonly = TRUE)[3] - (range(cnf)[2] - range(cnf)[1]) / 20, adj = 1,
-    #      nm, srt = 30, cex = .75,
-    #      xpd = TRUE)
-    # arrows(1:NROW(result), cnf[ ,1], 1:NROW(result), cnf[ ,2], 
-    #        length=0.05, angle=90, code=3)
-    # OX ####
+    if (confIntStrata == "logNormal") 
+      cnf <- result[, 8:9] 
+    else 
+      cnf <- result[, 6:7]
     
-    tilt <- 0 # maybe add to parameters??
+    tilt <- 0
     plot(y = 1:NROW(result), x = est,
          xlim = range(cnf),
          xlab = "Sub population size estimate", ylab="",

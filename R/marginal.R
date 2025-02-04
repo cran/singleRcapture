@@ -1,4 +1,4 @@
-#' @title Observed and fitted marginal Frequencies
+#' @title Observed and fitted marginal frequencies
 #' @author Piotr Chlebicki
 #' \loadmathjax
 #' @description A function that given a fitted \code{singleR} class object 
@@ -24,7 +24,7 @@
 #' @seealso [estimatePopsize()] -- where example of usage is provided
 #' @export
 marginalFreq <- function(object,
-                         includeones = TRUE, # matters only for zero one truncated models
+                         includeones = TRUE,
                          includezeros = TRUE,
                          onecount = NULL,
                          range,
@@ -73,9 +73,7 @@ marginalFreq <- function(object,
   res
 }
 
-# moved from methods. 
-# TODO:: add simulated p-value
-#' @title Statistical tests of goodness of fit.
+#' @title Statistical tests of goodness of fit
 #'
 #' @description Performs two statistical test on observed and fitted
 #' marginal frequencies. For G test the test statistic is computed as:

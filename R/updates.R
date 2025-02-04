@@ -1,5 +1,5 @@
 #' \loadmathjax
-#' @title Updating population size estimation results.
+#' @title Updating population size estimation results
 #'
 #' @description A function that applies all post-hoc procedures that were taken
 #' (such as heteroscedastic consistent covariance matrix estimation or bias
@@ -63,7 +63,6 @@ redoPopEstimation.singleRStaticCountData <- function(object,
                                                      offset,
                                                      weightsAsCounts,
                                                      ...) {
-  ### weightsAsPopCount works
   if (missing(cov)) {
     cov <- vcov
   }
