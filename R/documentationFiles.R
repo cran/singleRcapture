@@ -64,7 +64,7 @@ NULL
 #' made by respective models are not violated.
 #' 
 #' 
-#' The **zero truncated** models corresponding to "base" distributions are
+#' The **zero-truncated** models corresponding to "base" distributions are
 #' characterized by relation:
 #' \mjsdeqn{\mathbb{P}(Y=y|Y>0)=\left\lbrace
 #' \begin{array}{cc}
@@ -84,13 +84,13 @@ NULL
 #' \end{aligned}
 #' }
 #' 
-#' One common way in which assumptions of zero truncated models are violated is
-#' presence of **one inflation** the presence of which is somewhat similar in
-#' single source capture-recapture models to zero inflation in usual count data
-#' analysis. There are two ways in which one inflation may be understood,
+#' One common way in which assumptions of zero-truncated models are violated is
+#' presence of **one-inflation** the presence of which is somewhat similar in
+#' single source capture-recapture models to zero-inflation in usual count data
+#' analysis. There are two ways in which one-inflation may be understood,
 #' they relate to whether \mjseqn{\mathbb{P}(Y=0)} is 
 #' modified by inflation. The first approach is inflate 
-#' (\mjseqn{\omega} parameter) zero truncated distribution as:
+#' (\mjseqn{\omega} parameter) zero-truncated distribution as:
 #' \mjsdeqn{
 #' \mathbb{P}_{new}(Y=y|Y>0) = \left\lbrace\begin{array}{cc}
 #' \omega + (1 - \omega)\mathbb{P}_{old}(Y=1|Y>0)& \text{when: } y = 1 \cr
@@ -104,9 +104,9 @@ NULL
 #' (1 - \omega) \mathbb{P}_{old}(Y=y) & \text{when: } y > 1
 #' \end{array}\right.
 #' }
-#' before zero truncation. Models that utilize this
-#' approach are commonly referred to as *zero truncated one inflated models*.
-#' Another way of accommodating one inflation in SSCR is by putting inflation
+#' before zero-truncation. Models that utilize this
+#' approach are commonly referred to as *zero-truncated one-inflated models*.
+#' Another way of accommodating one-inflation in SSCR is by putting inflation
 #' parameter on base distribution as:
 #' \mjsdeqn{
 #' \mathbb{P}_{new}(Y=y) = \left\lbrace\begin{array}{cc}
@@ -127,12 +127,12 @@ NULL
 #' \mjseqn{\omega}. They can however lead to different 
 #' population size estimates.
 #' 
-#' For *zero truncated one inflated models* the formula for population size
+#' For *zero-truncated one-inflated models* the formula for population size
 #' estimate \mjseqn{\hat{N}} does not change since 
 #' \mjseqn{\mathbb{P}(y=0)} remains the same but estimation of parameters 
 #' changes all calculations.
 #' 
-#' For *one inflated zero truncated models* population size estimates are 
+#' For *one-inflated zero-truncated models* population size estimates are 
 #' expressed, respectively by:
 #' \mjsdeqn{
 #' \begin{aligned}
@@ -142,28 +142,28 @@ NULL
 #' \end{aligned}
 #' }
 #' 
-#' **Zero one truncated** models ignore one counts instead of accommodating
-#' one inflation by utilizing the identity
+#' **Zero-one-truncated** models ignore one counts instead of accommodating
+#' one-inflation by utilizing the identity
 #' \mjsdeqn{
 #' \ell_{\text{ztoi}}=\boldsymbol{f}_{1}\ln{\frac{\boldsymbol{f}_{1}}{N_{obs}}}
 #' +(N_{obs}-\boldsymbol{f}_{1})\ln{\left(1-\frac{\boldsymbol{f}_{1}}{N_{obs}}
 #' \right)} + \ell_{\text{zot}}
 #' }
 #' where \mjseqn{\ell_{\text{zot}}} is the log likelihood 
-#' of zero one truncated distribution characterized by probability mass function:
+#' of zero-one-truncated distribution characterized by probability mass function:
 #' \mjsdeqn{\mathbb{P}(Y=y|Y>1)=\left\lbrace
 #' \begin{array}{cc}
 #' \frac{\mathbb{P}(Y=y)}{1-\mathbb{P}(Y=0)-\mathbb{P}(Y=1)} & \text{when }y > 1 \cr
 #' 0 & \text{when }y\in\lbrace 0, 1\rbrace
 #' \end{array}\right.}
 #' where \mjseqn{\mathbb{P}(Y)} is the probability mass function of 
-#' the "base" distribution. The identity above justifies use of zero one truncated,
+#' the "base" distribution. The identity above justifies use of zero-one-truncated,
 #' unfortunately it was only proven for intercept only models, however
 #' numerical simulations seem to indicate that even if the theorem cannot be
 #' extended for (non trivial) regression population size estimation is still
 #' possible. 
 #' 
-#' For *zero one truncated models* population size estimates are expressed by:
+#' For *zero-one-truncated models* population size estimates are expressed by:
 #' \mjsdeqn{
 #' \begin{aligned}
 #' \hat{N} &= \boldsymbol{f}_{1} + \sum_{k=1}^{N_{obs}}
